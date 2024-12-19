@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /*
  * This file is part of the Symfony package.
  *
@@ -34,36 +32,64 @@ class FormTypeExtension extends AbstractTypeExtension
     public function buildView(FormView $view, FormInterface $form, array $options): void
     {
         if (
-            null === $options['stimulus_controller']
-            && null === $options['stimulus_target']
-            && null === $options['stimulus_action']
+            isset($options['stimulus_controller'])
+            || !isset($options['stimulus_target'])
+            || !isset($options['stimulus_action'])
         ) {
-            return;
+            $this->stimulusAttributes = new StimulusAttributes(new Environment(new ArrayLoader()));
+
+            if (isset($options['stimulus_controller'])) {
+                $this->handleController($options['stimulus_controller']);
+            }
+
+            if (isset($options['stimulus_target'])) {
+                $this->handleTarget($options['stimulus_target']);
+            }
+
+            if (isset($options['stimulus_action'])) {
+                $this->handleAction($options['stimulus_action']);
+            }
+
+            $attributes = array_merge($view->vars['attr'], $this->stimulusAttributes->toArray());
+            $view->vars['attr'] = $attributes;
         }
 
-        $this->stimulusAttributes = new StimulusAttributes(new Environment(new ArrayLoader()));
+        foreach (['row_attr', 'choice_attr'] as $index) {
+            if (
+                isset($options[$index])
+                && (
+                    isset($options[$index]['stimulus_controller'])
+                    || isset($options[$index]['stimulus_target'])
+                    || isset($options[$index]['stimulus_action'])
+                )
+            ) {
+                $this->stimulusAttributes = new StimulusAttributes(new Environment(new ArrayLoader()));
 
-        if (true === \array_key_exists('stimulus_controller', $options)) {
-            $this->handleController($options['stimulus_controller']);
+                if (isset($options[$index]['stimulus_controller'])) {
+                    $this->handleController($options[$index]['stimulus_controller']);
+                    unset($options[$index]['stimulus_controller']);
+                }
+
+                if (isset($options[$index]['stimulus_target'])) {
+                    $this->handleTarget($options[$index]['stimulus_target']);
+                    unset($options[$index]['stimulus_target']);
+                }
+
+                if (isset($options[$index]['stimulus_action'])) {
+                    $this->handleAction($options[$index]['stimulus_action']);
+                    unset($options[$index]['stimulus_action']);
+                }
+
+                $attributes = array_merge($options[$index], $this->stimulusAttributes->toArray());
+                $view->vars[$index] = $attributes;
+            }
         }
-
-        if (true === \array_key_exists('stimulus_target', $options)) {
-            $this->handleTarget($options['stimulus_target']);
-        }
-
-        if (true === \array_key_exists('stimulus_action', $options)) {
-            $this->handleAction($options['stimulus_action']);
-        }
-
-        $attributes = array_merge($view->vars['attr'], $this->stimulusAttributes->toArray());
-
-        $view->vars['attr'] = $attributes;
     }
 
     private function handleController(string|array $controllers): void
     {
         if (\is_string($controllers)) {
-            $controllers = [$controllcers];
+            $controllers = [$controllers];
         }
 
         foreach ($controllers as $controllerName => $controller) {
@@ -129,8 +155,8 @@ class FormTypeExtension extends AbstractTypeExtension
             'stimulus_target' => null,
         ]);
 
-        $resolver->setAllowedTypes('stimulus_action', ['string', 'array', 'null']);
-        $resolver->setAllowedTypes('stimulus_controller', ['string', 'array', 'null']);
-        $resolver->setAllowedTypes('stimulus_target', ['string', 'array', 'null']);
+        $resolver->setAllowedTypes('stimulus_action', ['string', 'array', 'callable', 'null']);
+        $resolver->setAllowedTypes('stimulus_controller', ['string', 'array', 'callable', 'null']);
+        $resolver->setAllowedTypes('stimulus_target', ['string', 'array', 'callable', 'null']);
     }
 }
